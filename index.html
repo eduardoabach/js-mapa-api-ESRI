@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Mapa API ESRI</title>
+    <link rel="stylesheet" href="http://js.arcgis.com/3.9/js/esri/css/esri.css">
+    <style>
+      html, body, #map {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #campo-busca {
+        display: block;
+        position: absolute;
+        z-index: 3;
+        top: 20px;
+        left: 75px;
+      }
+      .holofote {
+        z-index:-1;
+        position:absolute;
+        left:50%;
+        top:50%;
+        border-radius:50%;
+        opacity:0;
+        box-shadow:
+        inset rgba(0,0,0,0.25) 0px 0px 20px 20px,
+        rgba(0,0,0,0.25) 0px 0px 0px 1000px;
+        transition:all 1000ms;
+        -moz-transition:all 1000ms;
+        -webkit-transition:all 1000ms;
+      }
+      .holofote-ativo {
+        z-index:2;
+        opacity:1;
+      }
+    </style>
+    
+    <script src="http://js.arcgis.com/3.9/"></script>
+    <script>
+      require([
+        "esri/map",
+        "esri/dijit/Geocoder",
+
+        "esri/graphic",
+        "esri/symbols/SimpleMarkerSymbol",
+        "esri/geometry/screenUtils",
+
+        "dojo/dom",
+        "dojo/dom-construct",
+        "dojo/query",
+        "dojo/_base/Color",
+
+        "dojo/domReady!"
+      ], function(
+        Map, Geocoder,
+        Graphic, SimpleMarkerSymbol, screenUtils,
+        dom, domConstruct, query, Color
+      ) { 
+
+	//basemap: "streets", "satellite", "hybrid", "topo", "gray", "oceans", "osm", "national-geographic"
+        var map = new Map("map", {
+          basemap: "streets",
+          center: [-51,-29],
+          zoom: 10
+        });
+        var geocoder =  new Geocoder({
+          arcgisGeocoder: {
+            placeholder: ""
+          }, 
+          autoComplete: true,
+          map: map
+        }, dom.byId("campo-busca"));
+
+        map.on("load", criarHolofote);
+
+        geocoder.on("select", mostrarLocal);
+        geocoder.on("clear", removerHolofote);
+
+        function mostrarLocal(evt) {
+          map.graphics.clear();
+
+          var pontoLocal = evt.result.feature.geometry;
+          var simboloMostrar = new SimpleMarkerSymbol().setStyle(
+            SimpleMarkerSymbol.STYLE_SQUARE).setColor(
+            new Color([255,0,0,0.5])
+          );
+
+          var graphic = new Graphic(pontoLocal, simboloMostrar);
+          map.graphics.add(graphic);
+
+          map.infoWindow.setTitle("Resultado");
+          map.infoWindow.setContent(evt.result.name);
+          map.infoWindow.show(evt.result.feature.geometry);
+
+          var holofote = map.on("extent-change", function(extentChange) {
+            var geom = screenUtils.toScreenGeometry(map.extent, map.width, map.height, extentChange.extent);
+            var width = geom.xmax - geom.xmin;
+            var height = geom.ymin - geom.ymax;
+
+            var max = height;
+            if ( width > height ) {
+                max = width;
+            }
+
+            var margin = '-' + Math.floor(max/2) + 'px 0 0 -' + Math.floor(max/2) + 'px';
+
+            query(".holofote").addClass("holofote-ativo").style({
+              width: max + "px",
+              height: max + "px",
+              margin: margin
+            });
+            holofote.remove();
+          });
+        }
+
+        function criarHolofote() {
+          var html = "<div id='holofote' class='holofote'></div>"
+          domConstruct.place(html, dom.byId("map_container"), "first");
+        }
+
+        function removerHolofote() {
+          query(".holofote").removeClass("holofote-ativo");
+          map.infoWindow.hide();
+          map.graphics.clear();
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="campo-busca"></div>
+    <div id="map"></div>            
+  </body> 
+</html>
+
